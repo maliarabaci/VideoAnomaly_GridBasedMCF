@@ -72,7 +72,7 @@ int main(int argc, const char* argv[]) {
 			cout << nStartFrame << "\t" << nEndFrame << endl;
 		}
 
-		/* For each video in the list */
+		/* For each video in the video list */
 		nTrainSetPer = 10; // The percentage of the train set
 		dLearnRate = 0.1;
 		nGridSize = 4 ;

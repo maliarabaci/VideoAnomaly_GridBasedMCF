@@ -119,13 +119,16 @@ private:
 	//
 	double dElapsedTime;
 
+	//  Grid size of the frame
+	int m_nGridSize;
+
 	/// Motion angle cooccurrence histogram calculation
 	/*!
 	* \param  motionVectors	Given motion vectors
 	* \param  nFrameSkip		Frame skip value
 	* \param  motionAngleHist	Motion angle histogram
 	*/
-	void MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<double> > &vMotionAngleHist);
+	void MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<vector<double> > > &vMotionAngleHist);
 
 	/// Quantize the given motion angle to one of the specified 8-bins.
 	//  Full rotation is equally divided into 8-bins from 0 to 7 respectively.

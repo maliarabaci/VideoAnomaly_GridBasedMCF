@@ -32,7 +32,7 @@ enum eClassifier{
 };
 
 bool EstimateMotionVectors(const string& pathVideo, vector<vector<double> >& vecMotionVel, vector<vector<double> >& vecMotionAngle, vector<vector<pair<int, int> > >& vecMotionPosStart, vector<vector<pair<int, int> > >& vecMotionPosEnd);
-bool ExtractMCF(const string& pathVideo, vector<vector<double> >& vecMCFHist, vector<int>& vec_nFrameID);
+bool ExtractGridBasedMCF(const string& pathVideo, int nGridSize, vector<vector<vector<double> > >& vecMCFHist, vector<int>& vec_nFrameID);
 void DivideTrainTestSet(vector<vector<double> >& vecMCFHist, vector<int>& vec_nFrameID, int nTrainSetPer, vector<vector<double> >& vecMCFHistTrain, vector<int>& vec_nFrameIDTrain, vector<vector<double> >& vecMCFHistTest, vector<int>& vec_nFrameIDTest) ;
 void CreateMotionModel(vector<vector<double> >& vecMCFHistTrain, vector<double>& vecMotionModel);
 double MeasureHistDistance(const vector<double>& vecMCFHistTest, const vector<double>& vecMotionModel) ; 
@@ -46,13 +46,12 @@ int main(int argc, const char* argv[]) {
 		/* Read video list*/
 		int nStartFrame, nEndFrame, nTrainSetPer, nGridSize;
 		double dLearnRate ;
-		vector<double> vec_dHistDistance;
+		vector<vector<double> > vec_dHistDistance;
 		string strVidPath, strVidName;
 		vector<string> vec_strVidPath;
 		vector<int> vec_nStartFrame, vec_nEndFrame, vec_nFrameID, vec_nFrameIDTrain, vec_nFrameIDTest;
-		vector<vector<MotionVectorExtractor::stMotionVector> > vecMotionVectors;
-		vector<vector<double> > vecMCFHist, vecMCFHistTrain, vecMCFHistTest;
-		vector<double> vecMotionModel;
+		vector<vector<vector<double> > > vecMCFHist, vecMCFHistTrain, vecMCFHistTest;
+		vector<vector<double> > vecMotionModel;
 
 		ifstream inVideoList("video_list.txt");
 		ifstream ingt("gt.txt");
@@ -80,7 +79,7 @@ int main(int argc, const char* argv[]) {
 		for (int nVidIndex = 0; nVidIndex < vec_strVidPath.size(); nVidIndex++) {
 
 			/* Extract MCF histogram for all frames in the video */
-			ExtractMCF(vec_strVidPath[nVidIndex], vecMCFHist, vec_nFrameID);
+			ExtractGridBasedMCF(vec_strVidPath[nVidIndex], nGridSize, vecMCFHist, vec_nFrameID);
 
 			/* Create motion model from %x percent of the frames */
 			DivideTrainTestSet(vecMCFHist, vec_nFrameID, nTrainSetPer, vecMCFHistTrain, vec_nFrameIDTrain, vecMCFHistTest, vec_nFrameIDTest );
@@ -115,93 +114,6 @@ int main(int argc, const char* argv[]) {
 		inVideoList.close();
 
 		return 0;
-
-		//if ( !strcmp(strOption.c_str(), "extract") ) {
-
-		//	int nStartFrame, nEndFrame;
-		//	string strVidPath, strVidName;
-		//	vector<string> vec_strVidPath;
-		//	vector<int> vec_nStartFrame, vec_nEndFrame, vec_nFrameID;
-		//	vector<vector<MotionVectorExtractor::stMotionVector> > vecMotionVectors;
-		//	vector<vector<double> > vecMCFHist;
-
-		//	ifstream inVideoList("video_list.txt");
-		//	ifstream ingt("gt.txt");
-		//	ofstream featureFile("featureFile.txt");
-
-		//	// Read reference video list
-		//	while (getline(inVideoList, strVidPath)) {
-
-		//		vec_strVidPath.push_back(strVidPath);
-		//		cout << strVidPath << endl;
-		//	}
-
-		//	// Read ground truth for anomaly 
-		//	while (ingt >> strVidName >> nStartFrame >> nEndFrame) {
-
-		//		vec_nStartFrame.push_back(nStartFrame);
-		//		vec_nEndFrame.push_back(nEndFrame);
-		//		cout << nStartFrame << "\t" << nEndFrame << endl;
-		//	}
-
-		//	for (int nVidIndex = 0; nVidIndex < vec_strVidPath.size(); nVidIndex++) {
-
-		//		featureFile << vec_strVidPath[nVidIndex] << endl;
-		//		ExtractMCF(vec_strVidPath[nVidIndex], vecMCFHist, vec_nFrameID);
-
-		//		cout << "control main" << endl;
-		//		
-		//		for (int i = 1; i < vecMCFHist.size(); i++) {
-
-		//			int nLabelTemp = 0;
-
-		//			/*
-		//			if ((vec_nFrameID[i] >= vec_nStartFrame[nVidIndex]) && (vec_nFrameID[i] <= vec_nEndFrame[nVidIndex]))
-		//				nLabelTemp = 1;
-		//			else
-		//				nLabelTemp = 0;
-		//				*/
-		//			featureFile << nVidIndex << " " << vec_nFrameID[i] << " " << nLabelTemp << " ";
-		//			for (int j = 0; j < vecMCFHist[i].size(); j++)
-		//				featureFile << vecMCFHist[i][j] << " ";
-
-		//			featureFile << endl;
-
-		//			/*
-		//			if ((vec_nFrameID[i] >= vec_nStartFrame[nVidIndex]) && (vec_nFrameID[i] <= vec_nEndFrame[nVidIndex])) {
-
-		//			histfile_pos << vec_nFrameID[i] << " ";
-		//			for (int j = 0; j < vecMCFHist[i].size(); j++)
-		//			histfile_pos << vecMCFHist[i][j] << " ";
-
-		//			histfile_pos << endl;
-		//			}
-		//			else {
-
-		//			histfile_neg << vec_nFrameID[i] << " ";
-		//			for (int j = 0; j < vecMCFHist[i].size(); j++)
-		//			histfile_neg << vecMCFHist[i][j] << " ";
-
-		//			histfile_neg << endl;
-		//			}
-		//			*/
-		//		}
-		//	}
-
-		//	featureFile.close();
-		//	ingt.close();
-		//	inVideoList.close();
-		//}
-		//else if (!strcmp(strOption.c_str(), "test") ) {
-
-		//	string strFeatureFile = "featureFile.txt";
-		//	Train(strFeatureFile, eClassifier::kNN, 10);
-		//}
-		//else {
-
-		//	throw("Executable option should be entered!\nUsage Examples: \n 'executable extract' \n or \n 'executable test'\n");
-		//}
-		
 	}
 	catch (exception& e) {
 
@@ -313,7 +225,7 @@ bool EstimateMotionVectors(const string& pathVideo, vector<vector<double> >& vec
 }
 
 
-bool ExtractMCF(const string& pathVideo, vector<vector<double> >& vecMCFHist, vector<int>& vec_nFrameID) {
+bool ExtractGridBasedMCF(const string& pathVideo, int nGridSize, vector<vector<vector<double> > >& vecMCFHist, vector<int>& vec_nFrameID) {
 
 	int nFrameSkip, nFrameHistory, nrepeatTime;
 	double dAverageElapsedTime;
@@ -330,7 +242,7 @@ bool ExtractMCF(const string& pathVideo, vector<vector<double> >& vecMCFHist, ve
 
 		double dElapsedTime;
 
-		mcfextract.Extract(pathVideo, mHistType, nFrameSkip, nFrameHistory);
+		mcfextract.Extract(pathVideo, mHistType, nFrameSkip, nFrameHistory, nGridSize);
 		mcfextract.GetFeature(vecMCFHist, vec_nFrameID);
 		dElapsedTime = mcfextract.GetElapsedTime();
 		//cout << "Elapsed Time (in milli seconds) = " << dElapsedTime << endl;

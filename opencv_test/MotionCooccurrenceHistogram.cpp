@@ -41,6 +41,7 @@ void MotionCooccurrenceHistogram::Initialize()
 	m_nWinSizeDivider = 7;
 	m_nFrameHistory = 10;
 	m_nNofVectorThreshold = 1;
+	m_nGridSize = 1; // No grid 
 }
 
 void StartCounter()
@@ -62,7 +63,7 @@ double GetCounter()
 	return double(li.QuadPart - CounterStart) / PCFreq;
 }
 
-void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccurrenceHistogram::eMotionCooccurrenceType cType, int nFrameSkip, int nFrameHistory)
+void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccurrenceHistogram::eMotionCooccurrenceType cType, int nFrameSkip, int nFrameHistory, int nGridSize)
 {
 	vector<vector<double> > vHistNor;
 	vector<vector<double> > vecMotionVel, vecMotionAngle;
@@ -74,6 +75,8 @@ void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccu
 
 	// Define the length of diagonal
 	m_dDiagLength = 400;
+
+	m_nGridSize = nGridSize;
 
 	MotionVectorExtractor m;
 	// Extract motion vector with respect to the given parameters
@@ -101,7 +104,7 @@ void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccu
 	if (cType == MotionCooccurrenceHistogram::MOTION_COOCCURRENCE_ANGLE)
 	{
 		vector<map<pair<int, int>, int> > vPositionAngle; // Holds position and quantized angle bin for each frame
-		vector<vector<double> > vHistTemp;
+		vector<vector<vector<double> > > vHistTemp;
 		int nAngleBin;
 
 		for (unsigned int f = 0; f<vecMotionAngle.size(); f++)
@@ -205,15 +208,15 @@ void MotionCooccurrenceHistogram::GetFeature(vector<vector<double> > &output, ve
 	vec_noutFrameID = m_vFrameID;
 }
 
-void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<double> > &vMotionAngleHist)
+void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<vector<double> > > &vMotionAngleHist)
 {
 	vector<vector<double> > vMotionAngleHistTemp;
 	vector<double> vecFeature;
 	double weightFactor;
 
 	// Maximum distance for cooccurence histogram calculation
-	//int maxDist = m_dDiagLength / m_nWinSizeDivider;
-	int maxDist = 4;
+	int maxDist = m_dDiagLength / m_nWinSizeDivider;
+	//int maxDist = 4;
 
 	map<pair<int, int>, int>::iterator itPosAngleFirst, itPosAngleSecond;
 
@@ -227,10 +230,11 @@ void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, i
 		cout << i << endl;
 		if (i < m_nFrameHistory) {
 
-			vecFeature = vector<double>(m_nAngleBinSize*m_nAngleBinSize, 0);
+			vecFeature = vector<double>(m_nAngleBinSize*m_nAngleBinSize, 0); // Do not extract MCF for the first frames
 		}
 		else {
 
+			vector<vector<vector<double> > > matAngleCooccurrenceGrid;
 			vector<vector<double> > matAngleCooccurrence;
 			vector<double> vecAngleRow(m_nAngleBinSize, 0);
 
@@ -239,6 +243,11 @@ void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, i
 			for (unsigned int rindex = 0; rindex < m_nAngleBinSize; rindex++) {
 
 				matAngleCooccurrence.push_back(vecAngleRow);
+			}
+
+			for (unsigned int ngridindex = 0; ngridindex < m_nGridSize*m_nGridSize; ngridindex++) {
+
+				matAngleCooccurrenceGrid.push_back(matAngleCooccurrence);
 			}
 
 			if (vPositionAngle[i].size() > m_nNofVectorThreshold)

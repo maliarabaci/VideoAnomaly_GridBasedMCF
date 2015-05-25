@@ -78,6 +78,7 @@ int main(int argc, const char* argv[]) {
 		dLearnRate = 0.1;
 		nGridSize = 4; 
 		
+		cout << "before for" << endl;
 		for (int nVidIndex = 0; nVidIndex < vec_strVidPath.size(); nVidIndex++) {
 
 			/* Extract MCF histogram for all frames in the video */

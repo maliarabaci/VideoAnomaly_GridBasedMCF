@@ -17,6 +17,7 @@
 #include <functional> 
 #include <windows.h>
 #include <fstream>
+#include <map>
 
 double PCFreq = 0.0;
 __int64 CounterStart = 0;
@@ -241,7 +242,68 @@ void MotionCooccurrenceHistogram::DivideMotionVectorIntoGrids(vector<vector<doub
 																vector<vector<vector<double> > > &vecMotionVelGrid, vector<vector<vector<double> > > &vecMotionAngleGrid, 
 																vector<vector<vector<pair<int, int> > > > &vecMotionPosStartGrid, vector<vector<vector<pair<int, int> > > > &vecMotionPosEndGrid) {
 
+	int nNofGrids, hGridCellSize, wGridCellSize; 
 	
+	nNofGrids = nGridSize*nGridSize;
+	wGridCellSize = (width - (width%nGridSize)) / nGridSize;
+	hGridCellSize = (height - (height%nGridSize)) / nGridSize;
+	
+	vecMotionVelGrid.clear();
+	vecMotionAngleGrid.clear();
+	vecMotionPosStartGrid.clear();
+	vecMotionPosEndGrid.clear();
+
+	for (unsigned int frameindex = 0; frameindex < vecMotionVel.size(); frameindex++) {
+
+		// Find grid indexes of the motion vectors
+		multimap<int, int> map_motion2grid;
+		for (unsigned int motionindex = 0; motionindex < vecMotionVel[frameindex].size(); motionindex++) {
+
+			int nrowindex, ncolindex, ngridindex; 
+
+			// Determine grid index with respect to the start position of the motion vector
+			nrowindex = vecMotionPosStart[frameindex][motionindex].first / wGridCellSize;
+			ncolindex = vecMotionPosStart[frameindex][motionindex].second / hGridCellSize;
+
+			ngridindex = ncolindex + (nrowindex*nGridSize);
+			map_motion2grid.insert(pair<int, int>(ngridindex, motionindex));
+		}
+
+		// Split motion vectors to the grids wrt to their spatial positions
+		pair<multimap<int, int>::iterator, multimap<int, int>::iterator> itrange;
+		
+		vector<vector<double> > vec_frame_motionvel, vec_frame_motionangle; 
+		vector<vector<pair<int, int>> > vec_frame_posstart_temp, vec_frame_posend_temp;
+		for (unsigned int gridindex = 0; gridindex < nNofGrids; gridindex++) {
+
+			vector<double> vec_motionvel_temp, vec_motionangle_temp;
+			vector<pair<int, int> > vec_posstart_temp, vec_posend_temp;
+
+			itrange = map_motion2grid.equal_range( gridindex );
+
+			// For each grid index, push the corresponding motion vectors
+			for (multimap<int, int>::iterator it = itrange.first; it != itrange.second; ++it) {
+
+				vec_motionvel_temp.push_back(vecMotionVel[frameindex][it->second]);
+				vec_motionangle_temp.push_back(vecMotionAngle[frameindex][it->second]);
+
+				vec_posstart_temp.push_back(vecMotionPosStart[frameindex][it->second]);
+				vec_posend_temp.push_back(vecMotionPosEnd[frameindex][it->second]);
+			}
+
+			vec_frame_motionvel.push_back(vec_motionvel_temp);
+			vec_frame_motionangle.push_back(vec_motionangle_temp);
+
+			vec_frame_posstart_temp.push_back(vec_posstart_temp);
+			vec_frame_posend_temp.push_back(vec_posend_temp);
+		}
+
+		vecMotionVelGrid.push_back(vec_frame_motionvel);
+		vecMotionAngleGrid.push_back(vec_frame_motionangle);
+
+		vecMotionPosStartGrid.push_back(vec_frame_posstart_temp);
+		vecMotionPosEndGrid.push_back(vec_frame_posend_temp);
+	}
 }
 
 void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<double> > &vMotionAngleHist)

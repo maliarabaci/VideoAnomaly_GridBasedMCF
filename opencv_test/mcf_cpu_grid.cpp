@@ -33,11 +33,11 @@ enum eClassifier{
 
 bool EstimateMotionVectors(const string& pathVideo, vector<vector<double> >& vecMotionVel, vector<vector<double> >& vecMotionAngle, vector<vector<pair<int, int> > >& vecMotionPosStart, vector<vector<pair<int, int> > >& vecMotionPosEnd);
 bool ExtractGridBasedMCF(const string& pathVideo, int nGridSize, vector<vector<vector<double> > >& vecMCFHist, vector<int>& vec_nFrameID);
-void DivideTrainTestSet(vector<vector<double> >& vecMCFHist, vector<int>& vec_nFrameID, int nTrainSetPer, vector<vector<double> >& vecMCFHistTrain, vector<int>& vec_nFrameIDTrain, vector<vector<double> >& vecMCFHistTest, vector<int>& vec_nFrameIDTest) ;
-void CreateMotionModel(vector<vector<double> >& vecMCFHistTrain, vector<double>& vecMotionModel);
+void DivideTrainTestSet(vector<vector<vector<double> > >& vecMCFHist, vector<int>& vec_nFrameID, int nTrainSetPer, vector<vector<vector<double> > >& vecMCFHistTrain, vector<int>& vec_nFrameIDTrain, vector<vector<vector<double> > >& vecMCFHistTest, vector<int>& vec_nFrameIDTest) ;
+void CreateMotionModel(vector<vector<vector<double> > >& vecMCFHistTrain, vector<vector<double> >& vecMotionModel);
 double MeasureHistDistance(const vector<double>& vecMCFHistTest, const vector<double>& vecMotionModel) ; 
 void MinMaxNormalization(vector<double>& vHist, vector<double>& vHistNor) ;
-void UpdateMotionModel(vector<double>& vecMotionModel, vector<double>& vecMCFHistTest, double dLearnRate) ;
+void UpdateMotionModel(vector<vector<double> >& vecMotionModel, vector<vector<double> >& vecMCFHistTest, double dLearnRate) ;
 
 int main(int argc, const char* argv[]) {
 
@@ -46,7 +46,8 @@ int main(int argc, const char* argv[]) {
 		/* Read video list*/
 		int nStartFrame, nEndFrame, nTrainSetPer, nGridSize;
 		double dLearnRate ;
-		vector<vector<double> > vec_dHistDistance;
+		vector<vector<double> > vec_dVideoHistDistance;
+		vector<double> vec_dFrameDistance;
 		string strVidPath, strVidName;
 		vector<string> vec_strVidPath;
 		vector<int> vec_nStartFrame, vec_nEndFrame, vec_nFrameID, vec_nFrameIDTrain, vec_nFrameIDTest;
@@ -75,7 +76,8 @@ int main(int argc, const char* argv[]) {
 		/* For each video in the video list */
 		nTrainSetPer = 10; // The percentage of the train set
 		dLearnRate = 0.1;
-		nGridSize = 4 ;
+		nGridSize = 4; 
+		
 		for (int nVidIndex = 0; nVidIndex < vec_strVidPath.size(); nVidIndex++) {
 
 			/* Extract MCF histogram for all frames in the video */
@@ -87,22 +89,32 @@ int main(int argc, const char* argv[]) {
 
 			/* For each of the other frames */
 			double dHistDistance;
-			for (int nFrameIndex = 0; nFrameIndex < vecMCFHistTest.size(); nFrameIndex++) {
+			for (int nFrameIndex = 0; nFrameIndex < vec_nFrameIDTest.size(); nFrameIndex++) {
 
-				/* Measure the distance between two histograms */
-				dHistDistance = MeasureHistDistance(vecMCFHistTest[nFrameIndex], vecMotionModel) ;
-				vec_dHistDistance.push_back(dHistDistance) ;
+ 				for (unsigned int gridindex = 0; gridindex < vecMCFHistTest.size(); gridindex++) {
+
+					/* Measure the distance between two histograms */
+					dHistDistance = MeasureHistDistance(vecMCFHistTest[gridindex][nFrameIndex], vecMotionModel[gridindex]);
+					vec_dFrameDistance.push_back(dHistDistance);
+				}
 				/* Check anomaly (soft threshold) */
 				/* Maybe a counter for anomaly */
 
 				/* Update motion model */
-				UpdateMotionModel(vecMotionModel, vecMCFHistTest[nFrameIndex], dLearnRate) ;
+				UpdateMotionModel(vecMotionModel, vecMCFHistTest[nFrameIndex], dLearnRate);
+
+				vec_dVideoHistDistance.push_back(vec_dFrameDistance);
 			}
 
 			distanceFile << vec_strVidPath[nVidIndex] << endl;
-			for (unsigned int nTestFrameIndex = 0; nTestFrameIndex < vec_dHistDistance.size(); nTestFrameIndex++) {
+			for (unsigned int nTestFrameIndex = 0; nTestFrameIndex < vec_dVideoHistDistance.size(); nTestFrameIndex++) {
 
-				distanceFile << vec_nFrameIDTest[nTestFrameIndex] << "\t" << vec_dHistDistance[nTestFrameIndex] << endl;
+				distanceFile << vec_nFrameIDTest[nTestFrameIndex] << "\t";
+
+				for (unsigned int gridindex = 0; gridindex < vecMCFHistTest.size(); gridindex++) {
+
+					distanceFile << vec_dVideoHistDistance[nTestFrameIndex][gridindex] << "\t";
+				}
 			}
 			/* For each of the other frames (end) */
 		}
@@ -123,46 +135,59 @@ int main(int argc, const char* argv[]) {
 	return 0;
 }
 
-void DivideTrainTestSet(vector<vector<double> >& vecMCFHist, vector<int>& vec_nFrameID, int nTrainSetPer, vector<vector<double> >& vecMCFHistTrain, vector<int>& vec_nFrameIDTrain, vector<vector<double> >& vecMCFHistTest, vector<int>& vec_nFrameIDTest) {
+void DivideTrainTestSet(vector<vector<vector<double> > >& vecMCFHist, vector<int>& vec_nFrameID, int nTrainSetPer, vector<vector<vector<double> > >& vecMCFHistTrain, vector<int>& vec_nFrameIDTrain, vector<vector<vector<double> > >& vecMCFHistTest, vector<int>& vec_nFrameIDTest) {
 
 	int nFeatureSize, nTrainSize, nTestSize ;
-	vector<vector<double> > vecMCFHistTrain_Temp, vecMCFHistTest_Temp ;
 	vector<int> vec_nFrameIDTrain_Temp, vec_nFrameIDTest_Temp;
+	vector<int>::iterator itFrame;
 
 	nFeatureSize = vec_nFrameID.size() ;
 	nTrainSize = nFeatureSize*nTrainSetPer / 100;
 	nTestSize = nFeatureSize - nTrainSize ;
 
-	vector<vector<double> >::iterator itMCF ;
-	
-	itMCF = vecMCFHist.begin() ;
-	vecMCFHistTrain_Temp.assign(itMCF, itMCF + nTrainSize) ;
-	vecMCFHistTest_Temp.assign(itMCF + nTrainSize + 1, vecMCFHist.end()) ;
+	// Divide grid samples at first
+	vecMCFHistTrain.clear();
+	vecMCFHistTest.clear();
+	for (unsigned int gridindex = 0; gridindex < vecMCFHist.size(); gridindex++) {
 
-	vector<int>::iterator itFrame;
+		vector<vector<double> > vecMCFHistTrain_Temp, vecMCFHistTest_Temp;
+		vector<vector<double> >::iterator itMCF;
 
+		itMCF = vecMCFHist[gridindex].begin();
+		vecMCFHistTrain_Temp.assign(itMCF, itMCF + nTrainSize);
+		vecMCFHistTest_Temp.assign(itMCF + nTrainSize + 1, vecMCFHist[gridindex].end());
+
+		vecMCFHistTrain.push_back(vecMCFHistTrain_Temp);
+		vecMCFHistTest.push_back(vecMCFHistTest_Temp);
+	}
+
+	// Divide frame indexes 
 	itFrame = vec_nFrameID.begin();
 	vec_nFrameIDTrain_Temp.assign(itFrame, itFrame + nTrainSize);
-	vec_nFrameIDTest_Temp.assign(itFrame + nTrainSize + 1, vec_nFrameID.end()) ;
+	vec_nFrameIDTest_Temp.assign(itFrame + nTrainSize + 1, vec_nFrameID.end());
 
-	vecMCFHistTrain = vecMCFHistTrain_Temp ;
-	vecMCFHistTest = vecMCFHistTest_Temp ;
-
-	vec_nFrameIDTrain = vec_nFrameIDTrain_Temp ;
+	vec_nFrameIDTrain = vec_nFrameIDTrain_Temp;
 	vec_nFrameIDTest = vec_nFrameIDTest_Temp;
 }
 
-void CreateMotionModel(vector<vector<double> >& vecMCFHistTrain, vector<double>& vecMotionModel) {
+void CreateMotionModel(vector<vector<vector<double> > >& vecMCFHistTrain, vector<vector<double> >& vecMotionModel) {
 
-	vector<double> vecMotionModel_Temp(vecMCFHistTrain[0].size(),0);
+	vecMotionModel.clear();
 
-	for (unsigned int i = 0; i < vecMCFHistTrain.size(); i++) {
+	for (unsigned int gridindex = 0; gridindex < vecMCFHistTrain.size(); gridindex++) {
 
-		transform(vecMotionModel_Temp.begin(), vecMotionModel_Temp.end(), vecMCFHistTrain[i].begin(), vecMotionModel_Temp.begin(), std::plus<double>());
+		vector<double> vecMotionNorModel_Temp;
+		vector<double> vecMotionModel_Temp(vecMCFHistTrain[gridindex][0].size(), 0);
+
+		for (unsigned int i = 0; i < vecMCFHistTrain[gridindex].size(); i++) {
+
+			transform(vecMotionModel_Temp.begin(), vecMotionModel_Temp.end(), vecMCFHistTrain[gridindex][i].begin(), vecMotionModel_Temp.begin(), std::plus<double>());
+		}
+
+		// Min-max normalization
+		MinMaxNormalization(vecMotionModel_Temp, vecMotionNorModel_Temp);
+		vecMotionModel.push_back(vecMotionNorModel_Temp);
 	}
-
-	// Min-max normalization
-	MinMaxNormalization(vecMotionModel_Temp, vecMotionModel);
 }
 
 void MinMaxNormalization(vector<double>& vHist, vector<double>& vHistNor) {
@@ -199,17 +224,23 @@ double MeasureHistDistance(const vector<double>& vecMCFHistTest, const vector<do
 	return dDist ;
 }
 
-void UpdateMotionModel(vector<double>& vecMotionModel, vector<double>& vecMCFHistTest, double dLearnRate) {
+void UpdateMotionModel(vector<vector<double> >& vecMotionModel, vector<vector<double> >& vecMCFHistTest, double dLearnRate) {
 
-	vector<double> vecMotionModelNew ;
+	vector<vector<double> > vecMotionModelNew ;
 
-	for (unsigned int i = 0; i < vecMotionModel.size(); i++) {
+	for (unsigned int gridindex = 0; gridindex < vecMotionModel.size(); gridindex++) {
 
-		vecMotionModel[i] = (1 - dLearnRate)*vecMotionModel[i] + dLearnRate*vecMCFHistTest[i] ;
+		vector<double> vec_dNorModelTemp;
+		vector<double> vec_dModelTemp(vecMotionModel[gridindex].size(), 0);
+
+		for (unsigned int i = 0; i < vecMotionModel[gridindex].size(); i++) {
+
+			vec_dModelTemp[i] = (1 - dLearnRate)*vecMotionModel[gridindex][i] + dLearnRate*vecMCFHistTest[gridindex][i];
+		}
+
+		MinMaxNormalization(vec_dModelTemp, vec_dNorModelTemp);
+		vecMotionModelNew.push_back(vec_dNorModelTemp);
 	}
-
-	MinMaxNormalization( vecMotionModel, vecMotionModelNew ) ;
-
 	vecMotionModel = vecMotionModelNew ;
 }
 

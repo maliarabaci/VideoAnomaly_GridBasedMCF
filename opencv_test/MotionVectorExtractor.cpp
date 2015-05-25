@@ -51,6 +51,9 @@ bool MotionVectorExtractor::Extract(const string& path_video, MotionVectorExtrac
 	frame_size.height = (int)cvGetCaptureProperty(input_video, CV_CAP_PROP_FRAME_HEIGHT);
 	frame_size.width = (int)cvGetCaptureProperty(input_video, CV_CAP_PROP_FRAME_WIDTH);
 
+	m_dWidth = frame_size.width;
+	m_dHeight = frame_size.height;
+
 	imgPreviousFrame_Gray = cvCreateImage(frame_size, IPL_DEPTH_8U, 1);
 	imgCurrentFrame_Gray = cvCreateImage(frame_size, IPL_DEPTH_8U, 1);
 
@@ -147,6 +150,12 @@ void MotionVectorExtractor::GetFeature(vector<vector<double> >& vecoutMotionVel,
 	vecoutMotionPosStart = vecMotionPosStart;
 	vecoutMotionPosEnd = vecMotionPosEnd;
 	vecoutnFrameID = vec_nFrameID;
+}
+
+void MotionVectorExtractor::GetSize(int& width, int& height) {
+
+	width = m_dWidth;
+	height = m_dHeight;
 }
 
 void MotionVectorExtractor::ExtractMotionVectors(const IplImage* curFrame, const IplImage* preFrame, MotionVectorExtractor::eMotionMethod mMethod, vector<double>& vecFrameMotionVel, vector<double>& vecFrameMotionAngle, vector<pair<int, int> >& vecFrameMotionPosStart, vector<pair<int, int> >& vecFrameMotionPosEnd)

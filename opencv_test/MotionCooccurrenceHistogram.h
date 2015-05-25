@@ -50,7 +50,7 @@ public:
 	* \param	nFrameSkip		Frame skip value ( default=0 )
 	* \param	nFrameHistory	Frame history value for temporal co-occurrence calculation ( default=0 )
 	*/
-	void Extract(const string& video_path, eMotionCooccurrenceType cType, int nFrameSkip = 0, int nFrameHistory = 0);
+	void Extract(const string& video_path, eMotionCooccurrenceType cType, int nFrameSkip = 0, int nFrameHistory = 0, int nGridSize = 1);
 
 	/// Initialize MCF parameters to their default values
 	/*!
@@ -62,7 +62,7 @@ public:
 	/*!
 	* \param	output	Vector of motion co-occurrence histograms
 	*/
-	void GetFeature(vector<vector<double> > &output, vector<int>& vec_noutFrameID) const;
+	void GetFeature(vector<vector<vector<double> > > &output, vector<int>& vec_noutFrameID) const;
 
 	/// Function to reach the elapsed time for MCF extraction
 	/*!
@@ -87,9 +87,8 @@ private:
 	double m_dDiagLength;
 
 	// Motion cooccurrence histogram for video analysis
-	vector<vector<double> > m_vMCH_Video;
-
-
+	vector<vector<vector<double> > > m_vMCH_Video;
+	
 	vector<int> m_vFrameID;
 
 	// Motion cooccurrence histogram for frame analysis
@@ -128,7 +127,7 @@ private:
 	* \param  nFrameSkip		Frame skip value
 	* \param  motionAngleHist	Motion angle histogram
 	*/
-	void MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<vector<double> > > &vMotionAngleHist);
+	void MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<double> > &vMotionAngleHist);
 
 	/// Quantize the given motion angle to one of the specified 8-bins.
 	//  Full rotation is equally divided into 8-bins from 0 to 7 respectively.
@@ -169,6 +168,21 @@ private:
 	* \param	vHistNor	Normalized histogram
 	*/
 	void NormalizeHistogram(vector<vector<double> > &vHist, vector<vector<double> > &vHistNor);
+
+	/// Divide motion vectors into grids
+	/*!
+	* \param	vecMotionVel			The velocity values of the motion vectors
+	* \param	vecMotionAngle			Angle values of the motion vectors
+	* \param	vecMotionPosStart		Motion vector start position 
+	* \param	vecMotionPosEnd			Motion vector end position 
+	* \param	vecMotionVelGrid		The velocity values of the motion vectors grid-based
+	* \param	vecMotionAngleGrid		The angle values of the motion vectors grid-based
+	*/
+	void DivideMotionVectorIntoGrids(vector<vector<double> > &vecMotionVel, vector<vector<double> > &vecMotionAngle, 
+										vector<vector<pair<int, int> > > &vecMotionPosStart, vector<vector<pair<int, int> > > &vecMotionPosEnd, 
+										int nGridSize, int width, int height,
+										vector<vector<vector<double> > > &vecMotionVelGrid, vector<vector<vector<double> > > &vecMotionAngleGrid,
+										vector<vector<vector<pair<int, int> > > > &vecMotionPosStartGrid, vector<vector<vector<pair<int, int> > > > &vecMotionPosEndGrid);
 
 };
 

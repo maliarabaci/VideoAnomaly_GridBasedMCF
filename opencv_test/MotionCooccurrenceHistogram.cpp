@@ -65,10 +65,13 @@ double GetCounter()
 
 void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccurrenceHistogram::eMotionCooccurrenceType cType, int nFrameSkip, int nFrameHistory, int nGridSize)
 {
-	vector<vector<double> > vHistNor;
+	vector<vector<vector<double> > > vHistNorGrid;
 	vector<vector<double> > vecMotionVel, vecMotionAngle;
+	vector<vector<vector<double> > > vecMotionVelGrid, vecMotionAngleGrid;
 	vector<vector<pair<int, int> > > vecMotionPosStart, vecMotionPosEnd;
+	vector<vector<vector<pair<int, int> > > > vecMotionPosStartGrid, vecMotionPosEndGrid;
 	vector<int> vec_nFrameID;
+	int width, height;
 
 	// Frame history value
 	m_nFrameHistory = nFrameHistory;
@@ -83,7 +86,7 @@ void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccu
 	m.Extract(video_path, MotionVectorExtractor::MOTION_OPTICAL_FLOW_BM, 0);
 	// Get motion vectors to calculate histograms
 	m.GetFeature(vecMotionVel, vecMotionAngle, vecMotionPosStart, vecMotionPosEnd, vec_nFrameID);
-
+	m.GetSize(width, height);
 	/*
 	// Write motion vectors to the file
 	ofstream outMotionVel("outMotionVel.txt", iostream::app);
@@ -101,122 +104,155 @@ void MotionCooccurrenceHistogram::Extract(const string& video_path, MotionCooccu
 	*/
 	StartCounter();
 
+	// Divide motion vectors into grid at first
+	DivideMotionVectorIntoGrids(vecMotionVel, vecMotionAngle, vecMotionPosStart, vecMotionPosEnd, nGridSize, width, height, vecMotionVelGrid, vecMotionAngleGrid, vecMotionPosStartGrid, vecMotionPosEndGrid);
+
+	// Then extract motion cooccurrence histograms
 	if (cType == MotionCooccurrenceHistogram::MOTION_COOCCURRENCE_ANGLE)
 	{
-		vector<map<pair<int, int>, int> > vPositionAngle; // Holds position and quantized angle bin for each frame
-		vector<vector<vector<double> > > vHistTemp;
-		int nAngleBin;
+		for (unsigned int gridindex = 0; gridindex < nGridSize*nGridSize; gridindex++) {
 
-		for (unsigned int f = 0; f<vecMotionAngle.size(); f++)
-		{
-			map<pair<int, int>, int> mPositionAngleTemp;
+			vector<map<pair<int, int>, int> > vPositionAngle; // Holds position and quantized angle bin for each frame
+			vector<vector<double> > vHistTemp;
+			vector<vector<double> > vHistNorTemp;
+			int nAngleBin;
 
-			for (unsigned int m = 0; m<vecMotionAngle[f].size(); m++)
+			// Quantization of the motion vectors
+			for (unsigned int f = 0; f < vecMotionAngleGrid[gridindex].size(); f++)
 			{
-				nAngleBin = QuantizeMotionAngle(vecMotionAngle[f][m]);
-				mPositionAngleTemp.insert(pair<pair<int, int>, int>(vecMotionPosStart[f][m], nAngleBin));
+				map<pair<int, int>, int> mPositionAngleTemp;
+
+				for (unsigned int m = 0; m < vecMotionAngleGrid[gridindex][f].size(); m++)
+				{
+					nAngleBin = QuantizeMotionAngle(vecMotionAngleGrid[gridindex][f][m]);
+					mPositionAngleTemp.insert(pair<pair<int, int>, int>(vecMotionPosStartGrid[gridindex][f][m], nAngleBin));
+				}
+
+				vPositionAngle.push_back(mPositionAngleTemp);
 			}
 
-			vPositionAngle.push_back(mPositionAngleTemp);
+			// Extract MCF for each frame of specified grid
+			MotionAngleCooccurrence(vPositionAngle, nFrameSkip, vHistTemp);
+			NormalizeHistogram(vHistTemp, vHistNorTemp);
+			vHistNorGrid.push_back(vHistNorTemp);
 		}
-		MotionAngleCooccurrence(vPositionAngle, nFrameSkip, vHistTemp);
-		NormalizeHistogram(vHistTemp, vHistNor);
 	}
 	else if (cType == MotionCooccurrenceHistogram::MOTION_COOCCURRENCE_VELOCITY)
 	{
-		vector<map<pair<int, int>, int> > vPositionVelocity; // Holds position and quantized angle bin for each frame
-		vector<vector<double> > vHistTemp;
-		int nVelocityBin;
-		double unitTime;
+		for (unsigned int gridindex = 0; gridindex < nGridSize*nGridSize; gridindex++) {
 
-		unitTime = 0.04;
+			vector<map<pair<int, int>, int> > vPositionVelocity; // Holds position and quantized angle bin for each frame
+			vector<vector<double> > vHistTemp;
+			vector<vector<double> > vHistNorTemp;
+			int nVelocityBin;
+			double unitTime;
 
-		for (unsigned int f = 0; f<vecMotionVel.size(); f++)
-		{
-			map<pair<int, int>, int> mPositionVelocityTemp;
+			unitTime = 0.04;
 
-			for (unsigned int m = 0; m<vecMotionVel[f].size(); m++)
+			// Quantize motion velocity value
+			for (unsigned int f = 0; f < vecMotionVelGrid[gridindex].size(); f++)
 			{
-				nVelocityBin = QuantizeMotionVelocity(vecMotionVel[f][m], unitTime);
-				mPositionVelocityTemp.insert(pair<pair<int, int>, int>(vecMotionPosStart[f][m], nVelocityBin));
+				map<pair<int, int>, int> mPositionVelocityTemp;
+
+				for (unsigned int m = 0; m < vecMotionVelGrid[gridindex][f].size(); m++)
+				{
+					nVelocityBin = QuantizeMotionVelocity(vecMotionVelGrid[gridindex][f][m], unitTime);
+					mPositionVelocityTemp.insert(pair<pair<int, int>, int>(vecMotionPosStartGrid[gridindex][f][m], nVelocityBin));
+				}
+
+				vPositionVelocity.push_back(mPositionVelocityTemp);
 			}
 
-			vPositionVelocity.push_back(mPositionVelocityTemp);
+			// Extract velocity-based MCF 
+			MotionVelocityCooccurrence(vPositionVelocity, nFrameSkip, vHistTemp);
+			//vHistNor = vHistTemp;
+			NormalizeHistogram(vHistTemp, vHistNorTemp);
+			vHistNorGrid.push_back(vHistNorTemp);
 		}
-
-		MotionVelocityCooccurrence(vPositionVelocity, nFrameSkip, vHistTemp);
-		//vHistNor = vHistTemp;
-		NormalizeHistogram(vHistTemp, vHistNor);
 	}
 	else if (cType == MotionCooccurrenceHistogram::MOTION_COOCCURRENCE_ANGLE_VELOCITY)
 	{
-		vector<vector<double> > vAngleHistTemp, vVelocityHistTemp;
-		vector<vector<double> > vAngleHistNor, vVelocityHistNor;
-		vector<map<pair<int, int>, int> > vPositionAngle, vPositionVelocity;
-		int nAngleBin, nVelocityBin;
-		double unitTime;
+		for (unsigned int gridindex = 0; gridindex < nGridSize*nGridSize; gridindex++) {
 
-		unitTime = 0.04;
+			vector<vector<double> > vAngleHistTemp, vVelocityHistTemp;
+			vector<vector<double> > vAngleHistNor, vVelocityHistNor, vHistNorTemp;
+			vector<map<pair<int, int>, int> > vPositionAngle, vPositionVelocity;
+			int nAngleBin, nVelocityBin;
+			double unitTime;
 
-		// Quantize angle and velocity
-		for (unsigned int f = 0; f<vecMotionAngle.size(); f++)
-		{
-			map<pair<int, int>, int> mPositionAngleTemp, mPositionVelocityTemp;
+			unitTime = 0.04;
 
-			for (unsigned int m = 0; m<vecMotionAngle[f].size(); m++)
+			// Quantize angle and velocity
+			for (unsigned int f = 0; f < vecMotionAngleGrid[gridindex].size(); f++)
 			{
-				nAngleBin = QuantizeMotionAngle(vecMotionAngle[f][m]);
-				mPositionAngleTemp.insert(pair<pair<int, int>, int>(vecMotionPosStart[f][m], nAngleBin));
+				map<pair<int, int>, int> mPositionAngleTemp, mPositionVelocityTemp;
 
-				nVelocityBin = QuantizeMotionVelocity(vecMotionVel[f][m], unitTime);
-				mPositionVelocityTemp.insert(pair<pair<int, int>, int>(vecMotionPosStart[f][m], nVelocityBin));
+				for (unsigned int m = 0; m < vecMotionAngleGrid[gridindex][f].size(); m++)
+				{
+					nAngleBin = QuantizeMotionAngle(vecMotionAngleGrid[gridindex][f][m]);
+					mPositionAngleTemp.insert(pair<pair<int, int>, int>(vecMotionPosStartGrid[gridindex][f][m], nAngleBin));
+
+					nVelocityBin = QuantizeMotionVelocity(vecMotionVelGrid[gridindex][f][m], unitTime);
+					mPositionVelocityTemp.insert(pair<pair<int, int>, int>(vecMotionPosStartGrid[gridindex][f][m], nVelocityBin));
+				}
+
+				vPositionAngle.push_back(mPositionAngleTemp);
+				vPositionVelocity.push_back(mPositionVelocityTemp);
 			}
 
-			vPositionAngle.push_back(mPositionAngleTemp);
-			vPositionVelocity.push_back(mPositionVelocityTemp);
-		}
+			// Extract MCFs wrt position-angle and position-velocity
+			MotionAngleCooccurrence(vPositionAngle, nFrameSkip, vAngleHistTemp);
+			//vAngleHistNor = vAngleHistTemp;
+			NormalizeHistogram(vAngleHistTemp, vAngleHistNor);
 
-		// Extract MCFs wrt position-angle and position-velocity
-		MotionAngleCooccurrence(vPositionAngle, nFrameSkip, vAngleHistTemp);
-		//vAngleHistNor = vAngleHistTemp;
-		NormalizeHistogram(vAngleHistTemp, vAngleHistNor);
+			MotionVelocityCooccurrence(vPositionVelocity, nFrameSkip, vVelocityHistTemp);
+			//vVelocityHistNor = vVelocityHistTemp;
+			NormalizeHistogram(vVelocityHistTemp, vVelocityHistNor);
 
-		MotionVelocityCooccurrence(vPositionVelocity, nFrameSkip, vVelocityHistTemp);
-		//vVelocityHistNor = vVelocityHistTemp;
-		NormalizeHistogram(vVelocityHistTemp, vVelocityHistNor);
 
-		for (unsigned int j = 0; j<vAngleHistNor.size(); j++)
-		{
-			vector<double> vFeature;
+			for (unsigned int j = 0; j < vAngleHistNor.size(); j++)
+			{
+				vector<double> vFeature;
 
-			vFeature = vAngleHistNor[j];
-			vFeature.insert(vFeature.end(), vVelocityHistNor[j].begin(), vVelocityHistNor[j].end());
+				vFeature = vAngleHistNor[j];
+				vFeature.insert(vFeature.end(), vVelocityHistNor[j].begin(), vVelocityHistNor[j].end());
 
-			vHistNor.push_back(vFeature);
+				vHistNorTemp.push_back(vFeature);
+			}
+			vHistNorGrid.push_back(vHistNorTemp);
 		}
 	}
 
-	m_vMCH_Video = vHistNor;
+	m_vMCH_Video = vHistNorGrid;
 	m_vFrameID = vec_nFrameID;
 
 	dElapsedTime = GetCounter();
 }
 
-void MotionCooccurrenceHistogram::GetFeature(vector<vector<double> > &output, vector<int>& vec_noutFrameID) const
+void MotionCooccurrenceHistogram::GetFeature(vector<vector<vector<double> > > &output, vector<int>& vec_noutFrameID) const
 {
 	output = m_vMCH_Video;
 	vec_noutFrameID = m_vFrameID;
 }
 
-void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<vector<double> > > &vMotionAngleHist)
+void MotionCooccurrenceHistogram::DivideMotionVectorIntoGrids(vector<vector<double> > &vecMotionVel, vector<vector<double> > &vecMotionAngle, 
+																vector<vector<pair<int, int> > > &vecMotionPosStart, vector<vector<pair<int, int> > > &vecMotionPosEnd, 
+																int nGridSize, int width, int height,
+																vector<vector<vector<double> > > &vecMotionVelGrid, vector<vector<vector<double> > > &vecMotionAngleGrid, 
+																vector<vector<vector<pair<int, int> > > > &vecMotionPosStartGrid, vector<vector<vector<pair<int, int> > > > &vecMotionPosEndGrid) {
+
+	
+}
+
+void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, int>, int> > &vPositionAngle, int nFrameSkip, vector<vector<double> > &vMotionAngleHist)
 {
 	vector<vector<double> > vMotionAngleHistTemp;
 	vector<double> vecFeature;
-	double weightFactor;
+	//double weightFactor;
 
 	// Maximum distance for cooccurence histogram calculation
-	int maxDist = m_dDiagLength / m_nWinSizeDivider;
-	//int maxDist = 4;
+	//int maxDist = m_dDiagLength / m_nWinSizeDivider;
+	int maxDist = 8;
 
 	map<pair<int, int>, int>::iterator itPosAngleFirst, itPosAngleSecond;
 
@@ -234,7 +270,6 @@ void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, i
 		}
 		else {
 
-			vector<vector<vector<double> > > matAngleCooccurrenceGrid;
 			vector<vector<double> > matAngleCooccurrence;
 			vector<double> vecAngleRow(m_nAngleBinSize, 0);
 
@@ -243,11 +278,6 @@ void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, i
 			for (unsigned int rindex = 0; rindex < m_nAngleBinSize; rindex++) {
 
 				matAngleCooccurrence.push_back(vecAngleRow);
-			}
-
-			for (unsigned int ngridindex = 0; ngridindex < m_nGridSize*m_nGridSize; ngridindex++) {
-
-				matAngleCooccurrenceGrid.push_back(matAngleCooccurrence);
 			}
 
 			if (vPositionAngle[i].size() > m_nNofVectorThreshold)
@@ -325,7 +355,7 @@ int MotionCooccurrenceHistogram::QuantizeMotionAngle(double angle)
 
 void MotionCooccurrenceHistogram::MotionVelocityCooccurrence(vector<map<pair<int, int>, int> > &vPositionVelocity, int nFrameSkip, vector<vector<double> > &vMotionVelocityHist)
 {
-	double weightFactor;
+	//double weightFactor;
 	vector<vector<double> > vMotionVelocityHistTemp;
 
 	int maxDist = m_dDiagLength / m_nWinSizeDivider;

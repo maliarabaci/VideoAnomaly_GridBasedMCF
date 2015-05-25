@@ -75,10 +75,15 @@ public:
 	*/
 	void GetFeature(vector<vector<double> > &vecoutMotionVel, vector<vector<double> > &vecoutMotionAngle, vector<vector<pair<int, int> > > &vecoutMotionPosStart, vector<vector<pair<int, int> > > &vecoutMotionPosEnd, vector<int>& vec_nFrameID) const;
 
+	void GetSize(int& width, int& height);
+
 private:
 
 	// Holds motion vector method
 	eMotionMethod motionMethod;
+
+	int m_dWidth;
+	int m_dHeight;
 
 	// Video motion vector structs that holds start point, vector size etc.
 	//vector<vector<stMotionVector> > vidMotionVectors;

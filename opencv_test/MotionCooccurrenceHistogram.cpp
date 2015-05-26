@@ -253,7 +253,35 @@ void MotionCooccurrenceHistogram::DivideMotionVectorIntoGrids(vector<vector<doub
 	vecMotionPosStartGrid.clear();
 	vecMotionPosEndGrid.clear();
 
+	for (unsigned int gridindex = 0; gridindex < nNofGrids; gridindex++) {
+
+		vector<vector<double> > vec_frame_motionvel_temp, vec_frame_motionangle_temp;
+		vector<vector<pair<int, int> > > vec_frame_posstart_temp, vec_frame_posend_temp;
+
+		for (unsigned int frameindex = 0; frameindex < vecMotionVel.size(); frameindex++) {
+
+			vector<double> vec_motionvel_temp, vec_motionangle_temp;
+			vector<pair<int, int> > vec_posstart_temp, vec_posend_temp;
+			pair<int, int> posstart_temp, posend_temp;
+
+			vec_frame_motionvel_temp.push_back(vec_motionvel_temp);
+			vec_frame_motionangle_temp.push_back(vec_motionangle_temp);
+
+			vec_frame_posstart_temp.push_back(vec_posstart_temp);
+			vec_frame_posend_temp.push_back(vec_posend_temp);
+		}
+		vecMotionVelGrid.push_back(vec_frame_motionvel_temp);
+		vecMotionAngleGrid.push_back(vec_frame_motionangle_temp);
+
+		vecMotionPosStartGrid.push_back(vec_frame_posstart_temp);
+		vecMotionPosEndGrid.push_back(vec_frame_posend_temp);
+	}
+
+	cout << "**Frame size = " << vecMotionVel.size() << endl;
 	for (unsigned int frameindex = 0; frameindex < vecMotionVel.size(); frameindex++) {
+
+		//cout << "Frame index = " << frameindex << endl;
+		//cout << "Nof motion vectors = " << vecMotionVel[frameindex].size() << endl;
 
 		// Find grid indexes of the motion vectors
 		multimap<int, int> map_motion2grid;
@@ -272,8 +300,8 @@ void MotionCooccurrenceHistogram::DivideMotionVectorIntoGrids(vector<vector<doub
 		// Split motion vectors to the grids wrt to their spatial positions
 		pair<multimap<int, int>::iterator, multimap<int, int>::iterator> itrange;
 		
-		vector<vector<double> > vec_frame_motionvel, vec_frame_motionangle; 
-		vector<vector<pair<int, int>> > vec_frame_posstart_temp, vec_frame_posend_temp;
+		//vector<vector<double> > vec_frame_motionvel, vec_frame_motionangle; 
+		//vector<vector<pair<int, int>> > vec_frame_posstart_temp, vec_frame_posend_temp;
 		for (unsigned int gridindex = 0; gridindex < nNofGrids; gridindex++) {
 
 			vector<double> vec_motionvel_temp, vec_motionangle_temp;
@@ -282,6 +310,7 @@ void MotionCooccurrenceHistogram::DivideMotionVectorIntoGrids(vector<vector<doub
 			itrange = map_motion2grid.equal_range( gridindex );
 
 			// For each grid index, push the corresponding motion vectors
+			int counter = 0;
 			for (multimap<int, int>::iterator it = itrange.first; it != itrange.second; ++it) {
 
 				vec_motionvel_temp.push_back(vecMotionVel[frameindex][it->second]);
@@ -289,20 +318,23 @@ void MotionCooccurrenceHistogram::DivideMotionVectorIntoGrids(vector<vector<doub
 
 				vec_posstart_temp.push_back(vecMotionPosStart[frameindex][it->second]);
 				vec_posend_temp.push_back(vecMotionPosEnd[frameindex][it->second]);
+
+				counter++;
 			}
+			//cout << "Grid index / Nof motion vectors = " << gridindex << "/" << counter << endl;
 
-			vec_frame_motionvel.push_back(vec_motionvel_temp);
-			vec_frame_motionangle.push_back(vec_motionangle_temp);
+			vecMotionVelGrid[gridindex][frameindex].assign(vec_motionvel_temp.begin(), vec_motionvel_temp.end());
+			vecMotionAngleGrid[gridindex][frameindex].assign(vec_motionangle_temp.begin(), vec_motionangle_temp.end());
 
-			vec_frame_posstart_temp.push_back(vec_posstart_temp);
-			vec_frame_posend_temp.push_back(vec_posend_temp);
+			vecMotionPosStartGrid[gridindex][frameindex].assign(vec_posstart_temp.begin(), vec_posstart_temp.end());
+			vecMotionPosEndGrid[gridindex][frameindex].assign(vec_posend_temp.begin(), vec_posend_temp.end());
 		}
 
-		vecMotionVelGrid.push_back(vec_frame_motionvel);
-		vecMotionAngleGrid.push_back(vec_frame_motionangle);
+		//vecMotionVelGrid.insert(vecMotionVelGrid.begin()+ vec_frame_motionvel);
+		//vecMotionAngleGrid.push_back(vec_frame_motionangle);
 
-		vecMotionPosStartGrid.push_back(vec_frame_posstart_temp);
-		vecMotionPosEndGrid.push_back(vec_frame_posend_temp);
+		//vecMotionPosStartGrid.push_back(vec_frame_posstart_temp);
+		//vecMotionPosEndGrid.push_back(vec_frame_posend_temp);
 	}
 }
 
@@ -318,14 +350,14 @@ void MotionCooccurrenceHistogram::MotionAngleCooccurrence(vector<map<pair<int, i
 
 	map<pair<int, int>, int>::iterator itPosAngleFirst, itPosAngleSecond;
 
-	cout << "Extracting motion angle histogram" << endl;
+	//cout << "Extracting motion angle histogram" << endl;
 
 	// Angle based motion cooccurrence histogram calculation
 	//vec_nUpdatedFrameID.clear();
 	for (unsigned int i = 0; i<vPositionAngle.size(); i = i + nFrameSkip + 1)
 	{
 
-		cout << i << endl;
+		//cout << i << endl;
 		if (i < m_nFrameHistory) {
 
 			vecFeature = vector<double>(m_nAngleBinSize*m_nAngleBinSize, 0); // Do not extract MCF for the first frames

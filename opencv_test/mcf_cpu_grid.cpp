@@ -153,7 +153,7 @@ void DivideTrainTestSet(vector<vector<vector<double> > >& vecMCFHist, vector<int
 	nTrainSize = nFeatureSize*nTrainSetPer / 100;
 	nTestSize = nFeatureSize - nTrainSize ;
 
-	cout << "Train / Test Size = " << nTrainSize << " / " << nTestSize << endl;
+	cout << "Train / Test Size = " << nTrainSize << " // " << nTestSize << endl;
 
 	// Divide grid samples at first
 	vecMCFHistTrain.clear();

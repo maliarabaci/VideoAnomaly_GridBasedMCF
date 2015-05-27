@@ -95,7 +95,7 @@ int main(int argc, const char* argv[]) {
 
 					/* Measure the distance between two histograms */
 					dHistDistance = MeasureHistDistance(vecMCFHistTest[gridindex][nFrameIndex], vecMotionModel[gridindex]);
-					cout << "Grid index / Distance = " << gridindex << " / " << dHistDistance << endl;
+					//cout << "Grid index / Distance = " << gridindex << " / " << dHistDistance << endl;
 					vec_dFrameDistance.push_back(dHistDistance);
 
 					/* Update motion model */
@@ -108,6 +108,12 @@ int main(int argc, const char* argv[]) {
 			}
 
 			distanceFile << vec_strVidPath[nVidIndex] << endl;
+			distanceFile << "FrameID \t";
+			for (unsigned int gridindex = 0; gridindex < vecMCFHistTest.size(); gridindex++) {
+
+				distanceFile << gridindex << "\t";
+			}
+			distanceFile << endl;
 			for (unsigned int nTestFrameIndex = 0; nTestFrameIndex < vec_dVideoHistDistance.size(); nTestFrameIndex++) {
 
 				distanceFile << vec_nFrameIDTest[nTestFrameIndex] << "\t";
@@ -157,12 +163,10 @@ void DivideTrainTestSet(vector<vector<vector<double> > >& vecMCFHist, vector<int
 		vector<vector<double> > vecMCFHistTrain_Temp, vecMCFHistTest_Temp;
 		vector<vector<double> >::iterator itMCF;
 
-		cout << "Sample size = " << vecMCFHist[gridindex].size() << endl;
+		//cout << "Sample size = " << vecMCFHist[gridindex].size() << endl;
 
 		itMCF = vecMCFHist[gridindex].begin();
-		cout << "kontrol 1" << endl;
 		vecMCFHistTrain_Temp.assign(itMCF, itMCF + nTrainSize);
-		cout << "kontrol 2" << endl;
 		vecMCFHistTest_Temp.assign(itMCF + nTrainSize + 1, vecMCFHist[gridindex].end());
 
 		cout << "Grid index / Train / Test Size = " << gridindex << " / " << vecMCFHistTrain_Temp.size() << " / " << vecMCFHistTest_Temp.size() << endl;
